@@ -1,0 +1,155 @@
+import { useState, useCallback } from 'react';
+import { findSolutions } from '../lib/solver';
+import ResultDisplay from '../components/ResultDisplay';
+
+export default function Home() {
+  const [numbers, setNumbers] = useState(['', '', '', '', '']);
+  const [target, setTarget] = useState('');
+  const [level, setLevel] = useState('3');
+  const [mode, setMode] = useState('5');
+  const [solutions, setSolutions] = useState([]);
+  const [closestSolution, setClosestSolution] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleNumberChange = (index, value) => {
+    if (/^\d*$/.test(value) && value.length <= 4) {
+      const newNumbers = [...numbers];
+      newNumbers[index] = value;
+      setNumbers(newNumbers);
+    }
+  };
+
+  const handleSolve = useCallback(() => {
+    setError('');
+    setSolutions([]);
+    setClosestSolution(null);
+
+    const numInputs = numbers.slice(0, parseInt(mode)).map(n => parseInt(n, 10)).filter(n => !isNaN(n));
+    const targetNum = parseInt(target, 10);
+
+    if (numInputs.length !== parseInt(mode) || isNaN(targetNum)) {
+      setError('กรุณากรอกตัวเลขให้ครบทุกช่องและกรอกผลลัพธ์ที่ต้องการ');
+      return;
+    }
+    
+    // Validate target based on mode
+    if (mode === '4' && (targetNum < 10 || targetNum > 99)) {
+        setError('โหมด 4 ตัวเลข ต้องมีผลลัพธ์เป็นเลข 2 หลัก');
+        return;
+    }
+    if (mode === '5' && (targetNum < 100 || targetNum > 999)) {
+        setError('โหมด 5 ตัวเลข ต้องมีผลลัพธ์เป็นเลข 3 หลัก');
+        return;
+    }
+
+    setIsLoading(true);
+
+    // Use setTimeout to allow UI to update to "Loading" state before intensive calculation
+    setTimeout(() => {
+      const { exactSolutions, closest } = findSolutions(numInputs, targetNum, parseInt(level));
+      setSolutions(exactSolutions);
+      if (exactSolutions.length === 0) {
+        setClosestSolution(closest);
+      }
+      setIsLoading(false);
+    }, 50);
+  }, [numbers, target, level, mode]);
+  
+  const numberInputs = parseInt(mode, 10);
+
+  return (
+    <div className="bg-gray-50 min-h-screen flex flex-col items-center justify-center font-sans p-4">
+      <div className="w-full max-w-md bg-white rounded-2xl shadow-lg p-6 md:p-8">
+        <div className="text-center mb-6">
+          <h1 className="text-3xl font-bold text-gray-800">180 IQ Solver</h1>
+          <p className="text-gray-500 mt-1">ค้นหาวิธีคิด จากตัวเลขที่กำหนด</p>
+        </div>
+
+        {error && <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg relative mb-4" role="alert">{error}</div>}
+
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="mode" className="block text-sm font-medium text-gray-700">โหมด</label>
+              <select id="mode" value={mode} onChange={(e) => { setMode(e.target.value); setNumbers(['', '', '', '', '']); setTarget('')}} className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                <option value="5">5 ตัว (ผลลัพธ์ 3 หลัก)</option>
+                <option value="4">4 ตัว (ผลลัพธ์ 2 หลัก)</option>
+              </select>
+            </div>
+            <div>
+              <label htmlFor="level" className="block text-sm font-medium text-gray-700">ระดับ (Lv.)</label>
+              <select id="level" value={level} onChange={(e) => setLevel(e.target.value)} className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                <option value="B">B (+ - × ÷)</option>
+                <option value="1">1 (...ยกกำลัง)</option>
+                <option value="2">2 (...sqrt, รากที่ n)</option>
+                <option value="3">3 (...แฟคทอเรียล, ซิกม่า)</option>
+              </select>
+            </div>
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700">ตัวเลข:</label>
+            <div className={`grid ${numberInputs === 5 ? 'grid-cols-5' : 'grid-cols-4'} gap-2 mt-1`}>
+              {Array.from({ length: numberInputs }).map((_, i) => (
+                <input
+                  key={i}
+                  type="tel"
+                  maxLength="4"
+                  value={numbers[i]}
+                  onChange={(e) => handleNumberChange(i, e.target.value)}
+                  className="w-full text-center text-2xl font-bold border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+                />
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label htmlFor="target" className="block text-sm font-medium text-gray-700">ผลลัพธ์:</label>
+            <input
+              id="target"
+              type="tel"
+              maxLength={mode === '5' ? '3' : '2'}
+              value={target}
+              onChange={(e) => /^\d*$/.test(e.target.value) && setTarget(e.target.value)}
+              className="mt-1 w-full text-center text-4xl font-extrabold border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 p-2"
+            />
+          </div>
+
+          <button
+            onClick={handleSolve}
+            disabled={isLoading}
+            className="w-full bg-indigo-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-gray-400 transition-colors duration-200"
+          >
+            {isLoading ? 'กำลังคำนวณ...' : 'ดูวิธีคิด'}
+          </button>
+        </div>
+
+        <div className="mt-8">
+            {solutions.length > 0 && (
+                <div className="space-y-4">
+                    <h3 className="text-lg font-semibold text-gray-800">พบ {solutions.length} วิธีคิด:</h3>
+                    {solutions.map((sol, index) => (
+                        <ResultDisplay key={index} solution={sol} />
+                    ))}
+                </div>
+            )}
+            {closestSolution && (
+                 <div className="space-y-4">
+                    <h3 className="text-lg font-semibold text-gray-800">ไม่พบคำตอบที่ตรงเป๊ะ, วิธีที่ใกล้เคียงที่สุด (ได้ผลลัพธ์ {closestSolution.value}):</h3>
+                    <ResultDisplay solution={closestSolution} />
+                </div>
+            )}
+            { !isLoading && solutions.length === 0 && !closestSolution && !error && (
+                 <div className="text-center text-gray-500 pt-4">
+                    <p>กรุณากรอกตัวเลขเพื่อเริ่มการค้นหา</p>
+                </div>
+            )}
+        </div>
+      </div>
+       <footer className="text-center mt-6 text-sm text-gray-500">
+        <p>© {new Date().getFullYear()} 180 IQ Solver. Created for educational purposes.</p>
+      </footer>
+    </div>
+  );
+}
